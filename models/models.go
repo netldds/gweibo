@@ -18,14 +18,13 @@ const (
 	PID      = "1005056006394101"
 )
 
-type Clienter interface {
-	Run()
-}
-type Saver interface {
-	Save(ct string)
-}
 type WeiReuqester interface {
-	GetReqs() []*http.Request
+	GetNextRequest() *http.Request
+	Reset()
+}
+type WeiRequests struct {
+	Req []WeiRequest
+	seq int
 }
 type WeiRequest struct {
 	Method  string
@@ -34,31 +33,39 @@ type WeiRequest struct {
 	Query   url.Values
 }
 
-func (s *WeiRequest) GetBody() io.Reader {
+func (s *WeiRequests) GetBody() io.Reader {
 	return nil
 }
-func (s *WeiRequest) GetQuery() string {
-	return s.Query.Encode()
+func (s *WeiRequests) GetQuery() string {
+	return s.Req[s.seq].Query.Encode()
 }
-func (s *WeiRequest) GetTimeOut() float64 {
-	return s.Timeout.Seconds()
+func (s *WeiRequests) GetTimeOut() float64 {
+	return s.Req[s.seq].Timeout.Seconds()
 }
-func (s *WeiRequest) GetMethmod() string {
-	return s.Method
+func (s *WeiRequests) GetMethmod() string {
+	return s.Req[s.seq].Method
 }
-func (s *WeiRequest) GetUrl() string {
+func (s *WeiRequests) GetUrl() string {
 	param := ""
-	for _, v := range s.Params {
+	for _, v := range s.Req[s.seq].Params {
 		param = path.Join(param, v)
 	}
 	return fmt.Sprintf("%v%v?%v", ROOT_URL, param, s.GetQuery())
 }
-func (s *WeiRequest) GetReqs() []*http.Request {
+func (s *WeiRequests) GetNextRequest() *http.Request {
 	req, err := http.NewRequest(s.GetMethmod(), s.GetUrl(), nil)
 	if err != nil {
 		log.Println(err)
 	}
-	e := &http.Cookie{Name: "SUB", Value: "_2AkMp8PS_f8NxqwJRmf0Qym3hZYtxywzEieKfrAVkJRMxHRl-yj9kqlMOtRB6AnDaUG_s1jiCP8TQ5l46n-oHZaanbsDs"}
-	req.AddCookie(e)
-	return []*http.Request{req}
+	req.AddCookie(&http.Cookie{Name: "Path", Value: "/"})
+	req.AddCookie(&http.Cookie{Name: "YF-Page-G0", Value: "08eca8e8b3cf854de2e10f8127216863|1588529579|1588529547"})
+	req.AddCookie(&http.Cookie{Name: "SUB", Value: "_2A25zq3ERDeRhGedM6VYU-S_LyjuIHXVQweXZrDV8PUNbmtANLU6ikW9NWcOv5pZmSc0mCA9j5wGZ-u28YzWbtq0j"})
+	s.seq++
+	if s.seq >= len(s.Req) {
+		s.seq = 0
+	}
+	return req
+}
+func (s *WeiRequests) Reset() {
+	s.seq = 0
 }
