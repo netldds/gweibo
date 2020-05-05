@@ -1,6 +1,8 @@
 # gweibo
 获取山人最新微博
 
+## 运行方式
+`./gweibo  2>err | tee posts.log`
 
 ## 目标
 1. 全自动化获取山人微博
