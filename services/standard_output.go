@@ -2,42 +2,40 @@ package services
 
 import (
 	"fmt"
-	"log"
 	"time"
 )
 
-type Store interface {
-	SaveContext(timestamp time.Time, context []byte, img string)
-}
-type ImgSaver interface {
+type ImgStore interface {
 	SaveImg(url string)
 	GetUrl() string
 }
-type StandardOutput struct {
+type StandardOutputStore struct {
 	t        *time.Time
 	context  []byte
 	imgUrl   string
-	ImgSaver ImgSaver
+	ImgSaver ImgStore
 }
 
-type DefautlImgSaver struct {
+var DefaultStore = &StandardOutputStore{}
+
+type DefaultImgStore struct {
 	imgUrl string
 }
 
-func (s DefautlImgSaver) SaveImg(url string) {
+func (s DefaultImgStore) SaveImg(url string) {
 	s.imgUrl = url
 }
-func (s DefautlImgSaver) GetUrl() string {
+func (s DefaultImgStore) GetUrl() string {
 	return s.imgUrl
 }
 
-var DefaultImgSaverHandler = DefautlImgSaver{}
+var DefaultImgSaverHandler = DefaultImgStore{}
 
-func (s *StandardOutput) SaveContext(timestamp time.Time, context []byte, imgUrl string) {
+func (s *StandardOutputStore) SaveContext(timestamp time.Time, context []byte, imgUrl string) {
 	if s.ImgSaver == nil {
 		s.ImgSaver = DefaultImgSaverHandler
 	}
 	s.ImgSaver.SaveImg(imgUrl)
-	str := fmt.Sprintf("%v %v \n %v", timestamp, string(context), s.ImgSaver.GetUrl())
-	log.Println(str)
+	str := fmt.Sprintf("%v %v \n %v", timestamp.Format("2006-01-02 15:04"), string(context), s.ImgSaver.GetUrl())
+	fmt.Println(str)
 }

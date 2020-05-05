@@ -1,10 +1,29 @@
 package common
 
-import "log"
+import (
+	"io/ioutil"
+	"log"
 
-type DefaultSaver struct {
+	"github.com/go-yaml/yaml"
+)
+
+var Config *ServiceConfig
+
+func LoadConf() (s *ServiceConfig, err error) {
+	b, err := ioutil.ReadFile("./gweibo.yaml")
+	if err != nil {
+		log.Fatalln(err)
+		return
+	}
+	err = yaml.Unmarshal(b, &s)
+	if err != nil {
+		log.Fatal(err)
+		return
+	}
+	return
 }
-
-func (s *DefaultSaver) Save(ct string) {
-	log.Println(ct)
+func ReloadConfig() {
+	if s, err := LoadConf(); err == nil {
+		Config = s
+	}
 }

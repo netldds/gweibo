@@ -4,61 +4,26 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"gweibo/models"
-	"gweibo/services"
+	"gweibo/common"
 	"io/ioutil"
 	"log"
 	"net/http"
+	"net/url"
 	"sync"
 	"time"
 
 	"golang.org/x/net/html"
 )
 
-type Client interface {
-	Run()
+type GetTheOnePostRequest struct {
+	Mu sync.Mutex
+	common.RequestService
+	LastInfo MidInfo
 }
-type WeiClient struct {
-	mu         sync.Mutex
-	client     http.Client
-	requests   models.WeiReuqester
-	ProxyAgent services.Socks5Proxy
-	Saver      services.Store
-	ElapseTime time.Duration
-	ticker     *time.Ticker
-	postInfo   midInfo
-}
-type midInfo struct {
+type MidInfo struct {
 	Mid    string
 	ImgUrl string
 	t      time.Time
-}
-
-func NewClient(proxyAddr string, timeInterval time.Duration) Client {
-	s := &WeiClient{
-		mu:         sync.Mutex{},
-		ProxyAgent: services.NewProxyAgent(proxyAddr),
-		ElapseTime: timeInterval,
-		requests:   services.HomePageReq,
-	}
-	if proxyAddr != "" {
-		ts := &http.Transport{DialContext: s.ProxyAgent.GetDial()}
-		s.client.Transport = ts
-	}
-	if s.Saver == nil {
-		s.Saver = &services.StandardOutput{}
-	}
-	return s
-}
-
-func (s *WeiClient) Run() {
-	s.ticker = time.NewTicker(s.ElapseTime)
-	for {
-		select {
-		case <-s.ticker.C:
-			s.Launch()
-		}
-	}
 }
 
 type RespBody struct {
@@ -77,42 +42,73 @@ type RespBody struct {
 	4.通过 https://weibo.com/p/aj/mblog/getlongtext?mid=4498297848918260  获取json {"code":"100000","msg":"","data":{"html":" \u90a3\u9ad8\u7ea7\u7684\u662f\u600e\u4e48\u4f20\u8f93\u4fe1\u606f\u7684\uff1f\u91cf\u5b50\u7ea0\u7f20\uff1f<br>\u7b54\uff1a\u4f20\u8f93\u8fd9\u4e2a\u6982\u5ff5\u7684\u524d\u63d0\u662f\u5f97\u6709\u8ddd\u79bb\u969c\u788d\uff0c\u5982\u679c\u514b\u670d\u4e86\u8ddd\u79bb\u969c\u788d\uff0c\u90a3\u4f20\u8f93\u7684\u6982\u5ff5\u4e5f\u4e0d\u5b58\u5728\u4e86\uff0c\u7b11\u3002\u8fd1\u524d\u7684\uff0c\u75ab\u60c5\u671f\u5730\u7403\u5168\u4f53\u4eba\u7c7b\u7fa4\u4f53\u5669\u68a6\uff0c\u68a6\u4e2d\u88ab\u793a\u8b66\u88ab\u89e3\u6bd2\u600e\u4e48\u89e3\u91ca\uff0c\u4fe1\u606f\u65f6\u4ee3\uff0c\u8d8a\u6765\u8d8a\u591a\u7684\u795e\u8ff9\u5f81\u5146\u4f1a\u88ab\u6709\u4fe1\u4ef0\u7684\u4eba\u7fa4\u53d1\u73b0\u6c47\u603b\u5e76\u8ba8\u8bba\uff0c\u7b11\u3002 \u200b\u200b\u200b\u200b"}}
 	5. unicode解码 不包括 图片
 */
-func (s *WeiClient) Launch() {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	v := s.requests.GetNextRequest()
-	resp, err := s.client.Do(v)
-	if err != nil {
-		log.Println(err)
+func (s *GetTheOnePostRequest) Send(client *common.GCleint) (err error) {
+	s.Mu.Lock()
+	defer s.Mu.Unlock()
+	s.Reset()
+	path := s.GetPath()
+	query := url.Values{
+		//"stat_date":   []string{"201907"},
+		"pids":        []string{"Pl_Official_MyProfileFeed__20"},
+		"ajaxpagelet": []string{"1"},
 	}
-	raw, _ := ioutil.ReadAll(resp.Body)
-	newMid := s.Parse(string(raw))
-	if newMid.Mid == s.postInfo.Mid {
-		s.requests.Reset()
+	reqUrl := fmt.Sprintf("%v/%v?%v", s.GetRoot(), path, query.Encode())
+	req, err := http.NewRequest(s.GetMethod(), reqUrl, nil)
+	if err != nil {
 		return
 	}
-	s.postInfo = newMid
-	if err != nil {
-		log.Fatal(err)
+	common.ReloadConfig()
+	for k, v := range common.Config.Cookie {
+		req.AddCookie(&http.Cookie{Name: k, Value: v.(string)})
 	}
-	raw = nil
-	//get long text
-	v = s.requests.GetNextRequest()
-	v.URL.RawQuery = fmt.Sprintf("%v%v", v.URL.RawQuery, s.postInfo.Mid)
-	resp, err = s.client.Do(v)
+	resp, err := client.HttpClient.Do(req)
+	defer func() {
+		err = resp.Body.Close()
+		if err != nil {
+			log.Println(err)
+		}
+	}()
 	if err != nil {
-		log.Println(err)
+		return
+	}
+	raw, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return
+	}
+	newMid := s.Parse(string(raw))
+	if newMid.Mid == s.LastInfo.Mid {
+		return
+	}
+	s.LastInfo = newMid
+	raw = nil
+	s.NextRequest()
+	//get long text
+	query = url.Values{
+		"mid": []string{s.LastInfo.Mid},
+	}
+	path = s.GetPath()
+	reqUrl = fmt.Sprintf("%v/%v?%v", s.GetRoot(), path, query.Encode())
+	req, err = http.NewRequest(s.GetMethod(), reqUrl, nil)
+	if err != nil {
+		return
+	}
+	for k, v := range common.Config.Cookie {
+		req.AddCookie(&http.Cookie{Name: k, Value: v.(string)})
+	}
+	resp, err = client.HttpClient.Do(req)
+	if err != nil {
+		return
 	}
 	raw, _ = ioutil.ReadAll(resp.Body)
 	var body RespBody
 	err = json.Unmarshal(raw, &body)
 	if err != nil {
-		log.Println(err)
+		return
 	}
-	s.Saver.SaveContext(s.postInfo.t, []byte(body.Data.HTML), s.postInfo.ImgUrl)
-	resp.Body.Close()
+	client.Saver.SaveContext(s.LastInfo.t, []byte(body.Data.HTML), s.LastInfo.ImgUrl)
+	return
 }
-func (s *WeiClient) Parse(raw string) midInfo {
+func (s *GetTheOnePostRequest) Parse(raw string) MidInfo {
 	middleContent := raw[23 : len(raw)-11]
 	mjson := make(map[string]interface{})
 	err := json.Unmarshal([]byte(middleContent), &mjson)
@@ -128,7 +124,7 @@ func (s *WeiClient) Parse(raw string) midInfo {
 	return FindIds(body)
 }
 
-func FindIds(n *html.Node) midInfo {
+func FindIds(n *html.Node) MidInfo {
 	if n.Type == html.ElementNode && n.Data == "a" {
 		for _, a := range n.Attr {
 			if a.Key == "node-type" && a.Val == "feed_list_item_date" {
@@ -149,7 +145,7 @@ func FindIds(n *html.Node) midInfo {
 						}
 					}
 				}
-				return midInfo{
+				return MidInfo{
 					Mid:    n.Attr[0].Val,
 					ImgUrl: imgUrl,
 					t:      t,
@@ -165,7 +161,7 @@ func FindIds(n *html.Node) midInfo {
 			return v
 		}
 	}
-	return midInfo{}
+	return MidInfo{}
 }
 
 //find img url
