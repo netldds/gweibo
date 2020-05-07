@@ -9,6 +9,7 @@ import (
 	"log"
 	"net/http"
 	"net/url"
+	"strings"
 	"sync"
 	"time"
 
@@ -108,18 +109,34 @@ func (s *GetTheOnePostRequest) Send(client *common.GCleint) (err error) {
 	client.Saver.SaveContext(s.LastInfo.t, []byte(body.Data.HTML), s.LastInfo.ImgUrl)
 	return
 }
+func ReverseString(input []rune) []rune {
+	l := len(input)
+	output := make([]rune, l)
+	for i := 0; i <= l/2; i++ {
+		output[i], output[l-1-i] = input[l-1-i], input[i]
+	}
+	return output
+}
 func (s *GetTheOnePostRequest) Parse(raw string) MidInfo {
-	middleContent := raw[23 : len(raw)-11]
+	defer func() {
+		if r := recover(); r != nil {
+			log.Printf("Recovering from panic in parsing error is %v: \n", r)
+		}
+	}()
+	i := strings.Index(raw, "{")
+	outRun := ReverseString([]rune(raw))
+	j := strings.Index(string(outRun), "}")
+	middleContent := raw[i : len(raw)-j]
 	mjson := make(map[string]interface{})
 	err := json.Unmarshal([]byte(middleContent), &mjson)
 	if err != nil {
-		log.Fatal(err)
+		panic(err)
 	}
 	htmlStr := mjson["html"].(string)
 	data := bytes.NewBufferString(htmlStr)
 	body, err := html.Parse(data)
 	if err != nil {
-		log.Fatal(err)
+		panic(err)
 	}
 	return FindIds(body)
 }

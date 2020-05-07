@@ -18,6 +18,7 @@ func init() {
 	common.LoadConf()
 }
 func NewClient(elapseTime time.Duration, saver common.Store, proxy common.Socks5Proxy) *Client {
+	//todo proxy setup
 	return &Client{
 		GCleint: common.GCleint{
 			HttpClient: &http.Client{},
