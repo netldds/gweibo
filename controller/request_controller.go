@@ -44,8 +44,11 @@ type RespBody struct {
 	5. unicode解码 不包括 图片
 */
 func (s *GetTheOnePostRequest) Send(client *common.GCleint) (err error) {
-	s.Mu.Lock()
-	defer s.Mu.Unlock()
+	defer func() {
+		if err := recover(); err != nil {
+			log.Printf("Recovering from panic in parsing error is %v: \n", err)
+		}
+	}()
 	s.Reset()
 	path := s.GetPath()
 	query := url.Values{
@@ -63,18 +66,18 @@ func (s *GetTheOnePostRequest) Send(client *common.GCleint) (err error) {
 		req.AddCookie(&http.Cookie{Name: k, Value: v.(string)})
 	}
 	resp, err := client.HttpClient.Do(req)
-	defer func() {
-		err = resp.Body.Close()
-		if err != nil {
-			log.Println(err)
-		}
-	}()
 	if err != nil {
 		return
 	}
 	raw, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
 		return
+	}
+	if resp.Body != nil {
+		err = resp.Body.Close()
+		if err != nil {
+			return
+		}
 	}
 	newMid := s.Parse(string(raw))
 	if newMid.Mid == s.LastInfo.Mid {
@@ -147,11 +150,7 @@ func FindIds(n *html.Node) MidInfo {
 			if a.Key == "node-type" && a.Val == "feed_list_item_date" {
 				//mid,date
 				//html.Render(os.Stdout, n)
-				//fmt.Println(n.Attr[0].Val)
 				imgUrl := FindImg(n.Parent.Parent)
-				//get long text
-				//s.SaveContext(time.Now(), []byte(n.Attr[0].Val), imgUrl)
-				//s.Save(n.Attr[0].Val)
 				var t time.Time
 				var err error
 				for _, v := range n.Attr {
