@@ -61,7 +61,7 @@ func (s *GetTheOnePostRequest) Send(client *common.GCleint) (err error) {
 	if err != nil {
 		return
 	}
-	common.ReloadConfig()
+	//common.ReloadConfig()
 	for k, v := range common.Config.Cookie {
 		req.AddCookie(&http.Cookie{Name: k, Value: v.(string)})
 	}
@@ -79,8 +79,9 @@ func (s *GetTheOnePostRequest) Send(client *common.GCleint) (err error) {
 			return
 		}
 	}
+	//每天微博的id,不重复保存
 	newMid := s.Parse(string(raw))
-	if newMid.Mid == s.LastInfo.Mid {
+	if newMid.Mid == s.LastInfo.Mid || newMid.Mid == "" {
 		return
 	}
 	s.LastInfo = newMid

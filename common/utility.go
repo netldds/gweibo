@@ -9,18 +9,18 @@ import (
 
 var Config *ServiceConfig
 
-func LoadConf() (s *ServiceConfig, err error) {
+func LoadConf() (*ServiceConfig, error) {
 	b, err := ioutil.ReadFile("./gweibo.yaml")
 	if err != nil {
 		log.Fatalln(err)
-		return
+		return nil, nil
 	}
-	err = yaml.Unmarshal(b, &s)
+	err = yaml.Unmarshal(b, &Config)
 	if err != nil {
 		log.Fatal(err)
-		return
+		return nil, nil
 	}
-	return
+	return Config, nil
 }
 func ReloadConfig() {
 	if s, err := LoadConf(); err == nil {

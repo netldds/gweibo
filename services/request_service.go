@@ -4,8 +4,6 @@ import (
 	"fmt"
 	"gweibo/common"
 	"io"
-	"log"
-	"net/http"
 	"net/url"
 	"path"
 	"time"
@@ -82,20 +80,6 @@ func (s *WeiRequests) GetPath() string {
 		param = path.Join(param, v)
 	}
 	return param
-}
-func (s *WeiRequests) GetNextRequest() *http.Request {
-	req, err := http.NewRequest(s.GetMethod(), s.GetPath(), nil)
-	if err != nil {
-		log.Println(err)
-	}
-	req.AddCookie(&http.Cookie{Name: "Path", Value: "/"})
-	req.AddCookie(&http.Cookie{Name: "YF-Page-G0", Value: "08eca8e8b3cf854de2e10f8127216863|1588529579|1588529547"})
-	req.AddCookie(&http.Cookie{Name: "SUB", Value: "_2A25zq3ERDeRhGedM6VYU-S_LyjuIHXVQweXZrDV8PUNbmtANLU6ikW9NWcOv5pZmSc0mCA9j5wGZ-u28YzWbtq0j"})
-	s.seq++
-	if s.seq >= len(s.Req) {
-		s.seq = 0
-	}
-	return req
 }
 func (s *WeiRequests) Reset() {
 	s.seq = 0

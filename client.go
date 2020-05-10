@@ -18,8 +18,7 @@ func init() {
 	common.LoadConf()
 }
 func NewClient(elapseTime time.Duration, saver common.Store, proxy common.Socks5Proxy) *Client {
-	//todo proxy setup
-	return &Client{
+	c := &Client{
 		GCleint: common.GCleint{
 			HttpClient: &http.Client{},
 			Ticker:     time.NewTicker(elapseTime),
@@ -28,6 +27,13 @@ func NewClient(elapseTime time.Duration, saver common.Store, proxy common.Socks5
 			ProxyAgent: proxy,
 		},
 	}
+	//proxy setup
+	if common.Config.Proxy != "" {
+		ts := &http.Transport{}
+		ts.DialContext = proxy.GetDial()
+		c.HttpClient.Transport = ts
+	}
+	return c
 }
 
 //TODO web service
