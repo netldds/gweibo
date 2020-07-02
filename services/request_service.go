@@ -11,7 +11,7 @@ import (
 
 const (
 	HOST   = "weibo.com"
-	PID    = "1005056006394101"
+	PID    = "1005057475246694" //profile id in fans link
 	SCHEME = "https"
 )
 

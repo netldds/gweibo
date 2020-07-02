@@ -1,6 +1,9 @@
 # gweibo
 获取山人最新微博
 
+##编译
+$GOOS=linux GOARCH=arm GOARM=6 go build -o gweibo
+
 ## 运行方式
 `./gweibo  2>>err | tee posts.log`
 
